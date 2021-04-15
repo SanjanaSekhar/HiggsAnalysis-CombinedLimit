@@ -3,6 +3,7 @@ import os.path
 import ROOT
 from collections import defaultdict
 from math import *
+import string
 
 RooArgSet_add_original = ROOT.RooArgSet.add
 def RooArgSet_add_patched(self, obj, *args, **kwargs):
@@ -158,6 +159,19 @@ class ShapeBuilder(ModelBuilder):
                             self.out.var(n).setVal(0)
                             self.out.var(n).setError(1)
                             if self.options.optimizeBoundNuisances: self.out.var(n).setAttribute("optimizeBounds")
+                            if(self.options.symMCStats):
+                                this_bin = int(n.split('bin')[-1])
+                                print("This bin %i \n" % this_bin)
+                                if(this_bin != 0):
+                                    sym_bin = 0
+                                    base_name = n.strip(string.digits)
+                                    sym_bin_name = base_name + str(sym_bin)
+
+                                    print("adding difference constrain between %s and %s \n" % (n, sym_bin_name))
+                                    diff_name = "diff_%s_%s" % (n, sym_bin_name)
+                                    self.doObj(diff_name, "expr", """ "(@0-@1)",%s,%s""" % (n, sym_bin_name))
+                                    self.doObj("%s_Pdf" % diff_name, "SimpleGaussianConstraint", "%s, %s_In[0,%s], %s" % (diff_name, diff_name, '-7,7', '00.0011'), True)
+
                         elif arg.getAttribute("createPoissonConstraint"):
                             nom = arg.getVal()
                             pval = ROOT.Math.normal_cdf_c(7)
