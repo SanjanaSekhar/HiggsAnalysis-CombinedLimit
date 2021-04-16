@@ -185,11 +185,11 @@ class ShapeBuilder(ModelBuilder):
                                 if(this_bin > sym_bin):
                                     base_name = n.strip(string.digits)
                                     sym_bin_name = base_name + str(sym_bin)
-
+                                    sigma = 0.02
                                     print("adding difference constrain between %s and %s \n" % (n, sym_bin_name))
                                     diff_name = "diff_%s_%s" % (n, sym_bin_name)
                                     self.doObj(diff_name, "expr", """ "(@0-@1)",%s,%s""" % (n, sym_bin_name))
-                                    self.doObj("%s_Pdf" % diff_name, "SimpleGaussianConstraint", "%s, %s, %s" % (diff_name, '0.0', '0.001'), True)
+                                    self.doObj("%s_Pdf" % diff_name, "SimpleGaussianConstraint", "%s, %s, %s" % (diff_name, '0.0', str(sigma)), True)
                                     #self.out.var(diff_name).setVal(0)
                                     #self.out.var(diff_name).setError(0.001)
 
