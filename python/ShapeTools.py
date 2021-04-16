@@ -13,6 +13,25 @@ def RooArgSet_add_patched(self, obj, *args, **kwargs):
         return RooArgSet_add_original(self, obj, *args, **kwargs)
 ROOT.RooArgSet.add = RooArgSet_add_patched
 
+def get_sym_bin(idx, nBins):
+    if(idx < 16): #2x8 cos(theta) bins
+        n_cos_bins = 8
+        cos_bin = idx % n_cos_bins
+        eta_bin = idx / n_cos_bins
+        opp_cos_bin = (n_cos_bins - 1 - cos_bin) % n_cos_bins
+        sym_bin = eta_bin * n_cos_bins + opp_cos_bin
+    else: #eta bins have 6 cos bins (one or two eta bins depending on mass)
+        n_cos_bins = 6
+        diff_idx = idx - 16
+        cos_bin = diff_idx % n_cos_bins
+        eta_bin = diff_idx / n_cos_bins
+        opp_cos_bin = (n_cos_bins - 1 - cos_bin) % n_cos_bins
+        sym_bin = 16 + eta_bin*n_cos_bins + opp_cos_bin
+
+    return sym_bin
+
+
+
 from HiggsAnalysis.CombinedLimit.ModelTools import ModelBuilder
 
 class FileCache:
@@ -148,6 +167,7 @@ class ShapeBuilder(ModelBuilder):
                 prop.setAttribute('CachingPdf_Direct', True)
                 if self.DC.binParFlags[b][0] >= 0.:
                     bbb_args = prop.setupBinPars(self.DC.binParFlags[b][0])
+                    nBins = bbb_args.getSize()
                     for bidx in range(bbb_args.getSize()):
                         arg = bbb_args.at(bidx)
                         n = arg.GetName()
@@ -161,16 +181,22 @@ class ShapeBuilder(ModelBuilder):
                             if self.options.optimizeBoundNuisances: self.out.var(n).setAttribute("optimizeBounds")
                             if(self.options.symMCStats):
                                 this_bin = int(n.split('bin')[-1])
-                                print("This bin %i \n" % this_bin)
-                                if(this_bin != 0):
-                                    sym_bin = 0
+                                sym_bin = get_sym_bin(this_bin, nBins)
+                                if(this_bin > sym_bin):
                                     base_name = n.strip(string.digits)
                                     sym_bin_name = base_name + str(sym_bin)
 
                                     print("adding difference constrain between %s and %s \n" % (n, sym_bin_name))
                                     diff_name = "diff_%s_%s" % (n, sym_bin_name)
                                     self.doObj(diff_name, "expr", """ "(@0-@1)",%s,%s""" % (n, sym_bin_name))
-                                    self.doObj("%s_Pdf" % diff_name, "SimpleGaussianConstraint", "%s, %s_In[0,%s], %s" % (diff_name, diff_name, '-7,7', '00.0011'), True)
+                                    self.doObj("%s_Pdf" % diff_name, "SimpleGaussianConstraint", "%s, %s, %s" % (diff_name, '0.0', '0.001'), True)
+                                    #self.out.var(diff_name).setVal(0)
+                                    #self.out.var(diff_name).setError(0.001)
+
+                                    binconstraints.add(self.out.pdf('%s_Pdf' % diff_name))
+                                    #self.out.var("%s_In" % n).setConstant(True)
+                                    #self.extraNuisances.append(self.out.var("%s" % parname))
+                                    #self.extraGlobalObservables.append(self.out.var("%s_In" % n))
 
                         elif arg.getAttribute("createPoissonConstraint"):
                             nom = arg.getVal()
