@@ -185,7 +185,7 @@ class ShapeBuilder(ModelBuilder):
                                 if(this_bin > sym_bin):
                                     base_name = n.strip(string.digits)
                                     sym_bin_name = base_name + str(sym_bin)
-                                    sigma = 0.02
+                                    sigma = 0.07
                                     print("adding difference constrain between %s and %s \n" % (n, sym_bin_name))
                                     diff_name = "diff_%s_%s" % (n, sym_bin_name)
                                     self.doObj(diff_name, "expr", """ "(@0-@1)",%s,%s""" % (n, sym_bin_name))
