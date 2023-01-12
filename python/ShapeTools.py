@@ -171,50 +171,73 @@ class ShapeBuilder(ModelBuilder):
                     for bidx in range(bbb_args.getSize()):
                         arg = bbb_args.at(bidx)
                         n = arg.GetName()
-                        bbb_names.append(n)
+                        addConstraint = True
+                        if(self.options.fullCorr):
+                            this_bin = int(n.split('bin')[-1])
+                            sym_bin = get_sym_bin(this_bin, nBins)
+                            if(this_bin > sym_bin):
+                                addConstraint = False
+                                n_new = n.rstrip(string.digits) + str(sym_bin)
+                                arg.SetName(n_new)
+                                print("n_new %s" % n_new)
+                                n = n_new
+
+
                         parname = n
-                        self.out._import(arg)
-                        if arg.getAttribute("createGaussianConstraint"):
-                            self.doObj("%s_Pdf" % n, "SimpleGaussianConstraint", "%s, %s_In[0,%s], %s" % (n, n, '-7,7', '1.0'), True)
-                            self.out.var(n).setVal(0)
-                            self.out.var(n).setError(1)
-                            if self.options.optimizeBoundNuisances: self.out.var(n).setAttribute("optimizeBounds")
-                            if(self.options.symMCStats):
-                                this_bin = int(n.split('bin')[-1])
-                                sym_bin = get_sym_bin(this_bin, nBins)
-                                if(this_bin > sym_bin):
-                                    base_name = n.strip(string.digits)
-                                    sym_bin_name = base_name + str(sym_bin)
-                                    sigma = 0.07
-                                    print("adding difference constrain between %s and %s \n" % (n, sym_bin_name))
-                                    diff_name = "diff_%s_%s" % (n, sym_bin_name)
-                                    self.doObj(diff_name, "expr", """ "(@0-@1)",%s,%s""" % (n, sym_bin_name))
-                                    self.doObj("%s_Pdf" % diff_name, "SimpleGaussianConstraint", "%s, %s, %s" % (diff_name, '0.0', str(sigma)), True)
-                                    #self.out.var(diff_name).setVal(0)
-                                    #self.out.var(diff_name).setError(0.001)
+                        if(addConstraint):
+                            bbb_names.append(n)
+                            self.out._import(arg)
+                            if arg.getAttribute("createGaussianConstraint"):
+                                print("adding gaussian constraint for %s \n" % (n))
+                                self.doObj("%s_Pdf" % n, "SimpleGaussianConstraint", "%s, %s_In[0,%s], %s" % (n, n, '-7,7', '1.0'), True)
+                                self.out.var(n).setVal(0)
+                                self.out.var(n).setError(1)
+                                if self.options.optimizeBoundNuisances: self.out.var(n).setAttribute("optimizeBounds")
+                                if(self.options.symMCStats):
+                                    this_bin = int(n.split('bin')[-1])
+                                    sym_bin = get_sym_bin(this_bin, nBins)
+                                    if(this_bin > sym_bin):
+                                        base_name = n.strip(string.digits)
+                                        sym_bin_name = base_name + str(sym_bin)
+                                        #sigma = 0.6**(0.5)
+                                        #sigma = 0.07
+                                        sigma = self.options.sigma
+                                        if(sigma <0):
+                                            if("m1" in sym_bin_name or "m2" in sym_bin_name or "m3" in sym_bin_name or "m4" in sym_bin_name):
+                                                sigma = 0.1**0.5
+                                            elif("m5" in sym_bin_name or "m6" in sym_bin_name or "m7" in sym_bin_name):
+                                                sigma = 0.6**0.5
+                                            else:
+                                                sigma = 0.1 ** 0.5
+                                        print("adding difference constrain between %s and %s with sigma %.2f \n" % (n, sym_bin_name, sigma))
+                                        diff_name = "diff_%s_%s" % (n, sym_bin_name)
+                                        self.doObj(diff_name, "expr", """ "(@0-@1)",%s,%s""" % (n, sym_bin_name))
+                                        self.doObj("%s_Pdf" % diff_name, "SimpleGaussianConstraint", "%s, %s, %s" % (diff_name, '0.0', str(sigma)), True)
+                                        #self.out.var(diff_name).setVal(0)
+                                        #self.out.var(diff_name).setError(0.001)
 
-                                    binconstraints.add(self.out.pdf('%s_Pdf' % diff_name))
-                                    #self.out.var("%s_In" % n).setConstant(True)
-                                    #self.extraNuisances.append(self.out.var("%s" % parname))
-                                    #self.extraGlobalObservables.append(self.out.var("%s_In" % n))
+                                        binconstraints.add(self.out.pdf('%s_Pdf' % diff_name))
+                                        #self.out.var("%s_In" % n).setConstant(True)
+                                        #self.extraNuisances.append(self.out.var("%s" % parname))
+                                        #self.extraGlobalObservables.append(self.out.var("%s_In" % n))
 
-                        elif arg.getAttribute("createPoissonConstraint"):
-                            nom = arg.getVal()
-                            pval = ROOT.Math.normal_cdf_c(7)
-                            minObs = nom
-                            while minObs > 0 and (ROOT.TMath.Poisson(minObs, nom + 1) > pval):
-                                minObs -= (sqrt(nom) if nom > 10 else 1)
-                            maxObs = nom + 2
-                            while (ROOT.TMath.Poisson(maxObs, nom + 1) > pval):
-                                #print "Poisson(maxObs = %d, %f) = %g > 1e-12" % (maxObs, args[0]+1, ROOT.TMath.Poisson(maxObs, args[0]+1))
-                                maxObs += (sqrt(nom) if nom > 10 else 2)
-                            self.doObj("%s_Pdf" % n, "Poisson", "%s_In[%d,%f,%f], %s, 1" % (n, nom, minObs, maxObs, n))
-                            if n.endswith('_prod'):
-                                parname = n[:-5]
-                        binconstraints.add(self.out.pdf('%s_Pdf' % n))
-                        self.out.var("%s_In" % n).setConstant(True)
+                            elif arg.getAttribute("createPoissonConstraint"):
+                                nom = arg.getVal()
+                                pval = ROOT.Math.normal_cdf_c(7)
+                                minObs = nom
+                                while minObs > 0 and (ROOT.TMath.Poisson(minObs, nom + 1) > pval):
+                                    minObs -= (sqrt(nom) if nom > 10 else 1)
+                                maxObs = nom + 2
+                                while (ROOT.TMath.Poisson(maxObs, nom + 1) > pval):
+                                    #print "Poisson(maxObs = %d, %f) = %g > 1e-12" % (maxObs, args[0]+1, ROOT.TMath.Poisson(maxObs, args[0]+1))
+                                    maxObs += (sqrt(nom) if nom > 10 else 2)
+                                self.doObj("%s_Pdf" % n, "Poisson", "%s_In[%d,%f,%f], %s, 1" % (n, nom, minObs, maxObs, n))
+                                if n.endswith('_prod'):
+                                    parname = n[:-5]
+                            binconstraints.add(self.out.pdf('%s_Pdf' % n))
+                            self.extraGlobalObservables.append(self.out.var("%s_In" % n))
+                            self.out.var("%s_In" % n).setConstant(True)
                         self.extraNuisances.append(self.out.var("%s" % parname))
-                        self.extraGlobalObservables.append(self.out.var("%s_In" % n))
                 if not self.out.var('ONE'):
                     self.doVar('ONE[1.0]')
                 sum_s = self.addObj(ROOT.RooRealSumPdf, "pdf_bin%s"       % b,  "", ROOT.RooArgList(prop),   ROOT.RooArgList(self.out.var('ONE')), True)

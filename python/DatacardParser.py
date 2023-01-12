@@ -41,6 +41,8 @@ def addDatacardParserOptions(parser):
     parser.add_option("--X-pack-asympows",  dest="packAsymPows", default=False, action="store_true", help="Try reduce the number of inputs by merging AsymPow instances into ProcessNormalization objects")
     parser.add_option("--X-optimizeMHDependency",  dest="optimizeMHDependency", default=None, help="Simplify MH dependent objects: 'fixed', 'pol<N>' with N=0..4")
     parser.add_option("--symMCStats",  dest="symMCStats", default=False, action="store_true", help="Add constraints to symmetrize MC stats nusiances")
+    parser.add_option("--fullCorr",  dest="fullCorr", default=False, action="store_true", help="Fully correlate the symmetrized nuisances")
+    parser.add_option("--sigma",  dest="sigma", default=(0.1)**0.5, type = "float", help="What sigma to use as for the gaussian constraint for symmetrizing nuisances")
 
 
 from HiggsAnalysis.CombinedLimit.Datacard import Datacard
