@@ -12,7 +12,7 @@ def RooArgSet_add_patched(self, obj, *args, **kwargs):
     else:
         return RooArgSet_add_original(self, obj, *args, **kwargs)
 ROOT.RooArgSet.add = RooArgSet_add_patched
-
+'''
 def get_sym_bin(idx, nBins):
     if(idx < 16): #2x8 cos(theta) bins
         n_cos_bins = 8
@@ -31,6 +31,31 @@ def get_sym_bin(idx, nBins):
     return sym_bin
 
 
+'''
+def get_sym_bin(idx, nBins):
+    # 3 mass bins, 8+6+6 cost bins
+    print("nBins = ",nBins)
+    if nBins < 20:
+	n_cos_bins = 6
+        cos_bin = idx % n_cos_bins
+        eta_bin = idx / n_cos_bins
+        opp_cos_bin = (n_cos_bins - 1 - cos_bin) % n_cos_bins
+        sym_bin = eta_bin * n_cos_bins + opp_cos_bin
+    else:	
+        if(idx % 20 >= 0 and idx % 20 < 8):
+            n_cos_bins = 8
+            cos_bin = idx % n_cos_bins
+            eta_bin = idx / n_cos_bins
+            opp_cos_bin = (n_cos_bins - 1 - cos_bin) % n_cos_bins
+            sym_bin = eta_bin * n_cos_bins + opp_cos_bin
+        else:
+            n_cos_bins = 6
+            cos_bin = idx % n_cos_bins
+            eta_bin = idx / n_cos_bins
+            opp_cos_bin = (n_cos_bins - 1 - cos_bin) % n_cos_bins
+            sym_bin = eta_bin * n_cos_bins + opp_cos_bin
+    
+    return sym_bin
 
 from HiggsAnalysis.CombinedLimit.ModelTools import ModelBuilder
 
