@@ -192,10 +192,14 @@ class ShapeBuilder(ModelBuilder):
                 prop.setAttribute('CachingPdf_Direct', True)
                 if self.DC.binParFlags[b][0] >= 0.:
                     bbb_args = prop.setupBinPars(self.DC.binParFlags[b][0])
+		    #print("bbb_args ",bbb_args)
+		    diff_name_list = []
                     nBins = bbb_args.getSize()
                     for bidx in range(bbb_args.getSize()):
+			#print("bidx ",bidx)
                         arg = bbb_args.at(bidx)
                         n = arg.GetName()
+			#print("n ",n)
                         addConstraint = True
                         if(self.options.fullCorr):
                             this_bin = int(n.split('bin')[-1])
@@ -212,6 +216,7 @@ class ShapeBuilder(ModelBuilder):
                         if(addConstraint):
                             bbb_names.append(n)
                             self.out._import(arg)
+			    #print("arg ",arg)
                             if arg.getAttribute("createGaussianConstraint"):
                                 print("adding gaussian constraint for %s \n" % (n))
                                 self.doObj("%s_Pdf" % n, "SimpleGaussianConstraint", "%s, %s_In[0,%s], %s" % (n, n, '-7,7', '1.0'), True)
@@ -234,17 +239,20 @@ class ShapeBuilder(ModelBuilder):
                                                 sigma = 0.6**0.5
                                             else:
                                                 sigma = 0.1 ** 0.5
-                                        print("adding difference constrain between %s and %s with sigma %.2f \n" % (n, sym_bin_name, sigma))
+                                        print("adding difference constraint between %s and %s with sigma %.2f \n" % (n, sym_bin_name, sigma))
                                         diff_name = "diff_%s_%s" % (n, sym_bin_name)
-                                        self.doObj(diff_name, "expr", """ "(@0-@1)",%s,%s""" % (n, sym_bin_name))
-                                        self.doObj("%s_Pdf" % diff_name, "SimpleGaussianConstraint", "%s, %s, %s" % (diff_name, '0.0', str(sigma)), True)
-                                        #self.out.var(diff_name).setVal(0)
-                                        #self.out.var(diff_name).setError(0.001)
+					#bbb_names.append(diff_name)
+                                        self.doObj(diff_name, 'expr',""" "(@0-@1)",%s,%s""" % (n, sym_bin_name),True)
+                                        self.doObj("%s_Pdf" % diff_name, "SimpleGaussianConstraint", "%s, %s_In[0.0,-7,7], %s" % (diff_name, diff_name, str(sigma)), True)
+                                        diff_name_list.append(diff_name)
+					#self.out.var(diff_name).setVal(0)
+                                        #self.out.var(diff_name).setError(1)
 
-                                        binconstraints.add(self.out.pdf('%s_Pdf' % diff_name))
-                                        #self.out.var("%s_In" % n).setConstant(True)
-                                        #self.extraNuisances.append(self.out.var("%s" % parname))
-                                        #self.extraGlobalObservables.append(self.out.var("%s_In" % n))
+                                        #binconstraints.add(self.out.pdf('%s_Pdf' % diff_name))
+					#self.extraGlobalObservables.append(self.out.var("%s_In" % diff_name))
+                                        #self.out.var("%s_In" % diff_name).setConstant(True)
+                                        #self.extraNuisances.append(self.out.var("%s" % diff_name))
+                                        #self.extraGlobalObservables.append(self.out.var("%s_In" % diff_name))
 
                             elif arg.getAttribute("createPoissonConstraint"):
                                 nom = arg.getVal()
@@ -262,7 +270,16 @@ class ShapeBuilder(ModelBuilder):
                             binconstraints.add(self.out.pdf('%s_Pdf' % n))
                             self.extraGlobalObservables.append(self.out.var("%s_In" % n))
                             self.out.var("%s_In" % n).setConstant(True)
-                        self.extraNuisances.append(self.out.var("%s" % parname))
+			    for diff_name in diff_name_list:
+				binconstraints.add(self.out.pdf('%s_Pdf' % diff_name))
+				self.extraGlobalObservables.append(self.out.var("%s_In" % diff_name))
+				self.out.var("%s_In" % diff_name).setConstant(True)
+				#self.extraNuisances.append(self.out.var("%s" % diff_name))
+                            #print(diff_name_list)
+			    #print("binconstraints ",binconstraints.Print())
+			    #for gob in self.extraGlobalObservables:
+				#print('gob = ',gob)
+			    self.extraNuisances.append(self.out.var("%s" % parname))
                 if not self.out.var('ONE'):
                     self.doVar('ONE[1.0]')
                 sum_s = self.addObj(ROOT.RooRealSumPdf, "pdf_bin%s"       % b,  "", ROOT.RooArgList(prop),   ROOT.RooArgList(self.out.var('ONE')), True)
